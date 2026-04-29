@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nextcloud-Backup Test</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --ink: #1a1a1a;
+    --paper: #ffffff;
+    --accent: #2d5f3f;
+    --accent-soft: #e8f0ea;
+    --warn: #c4541a;
+    --warn-soft: #fbeadc;
+    --error: #a02828;
+    --error-soft: #f6dada;
+    --line: #d4cfc4;
+    --muted: #6b6356;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 60px;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-size: 28px;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-family: Georgia, serif;
+    font-weight: 400;
+    font-size: 18px;
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin: 10px 0 4px;
+    font-weight: 500;
+  }
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: inherit;
+  }
+  input[type="text"]:focus, input[type="password"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  button {
+    flex: 1;
+    min-width: 130px;
+    padding: 11px 14px;
+    font-size: 15px;
+    font-weight: 500;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:active { opacity: 0.8; }
+  button:disabled {
+    background: var(--line);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+  button.secondary {
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  button.danger { background: var(--error); }
+  .log {
+    background: #1a1a1a;
+    color: #e8e4dc;
+    font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 12.5px;
+    padding: 14px;
+    border-radius: 8px;
+    max-height: 360px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.55;
+  }
+  .log:empty::before {
+    content: "Noch keine Aktionen ausgeführt.";
+    color: #666;
+    font-style: italic;
+  }
+  .log .ok    { color: #7fc995; }
+  .log .err   { color: #e88a8a; }
+  .log .info  { color: #88c0d8; }
+  .log .warn  { color: #e8c87f; }
+  .log .step  { color: #d4c5a0; font-weight: bold; margin-top: 8px; display: inline-block; }
+  .pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .help {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.45;
+  }
+  .help a { color: var(--accent); }
+  details {
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  details summary { cursor: pointer; padding: 4px 0; }
+  details p { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nextcloud-Backup Test</h1>
+  <div class="subtitle">Mini-App zum Prüfen, ob Faultiers Backup-Mechanik mit deiner Schul-Nextcloud zusammenspielt.</div>
+
+  <div class="card">
+    <h2>1. Zugangsdaten</h2>
+    <label>Server-URL</label>
+    <input type="text" id="server" value="https://nc.online-schule.saarland" autocapitalize="off" autocorrect="off" spellcheck="false">
+
+    <label>Benutzername</label>
+    <input type="text" id="user" placeholder="dein.benutzername" autocapitalize="off" autocorrect="off" spellcheck="false">
+
+    <label>Passwort <span class="pill" id="pwTypeBadge">App-Passwort empfohlen</span></label>
+    <input type="password" id="pass" placeholder="App-Passwort oder normales Passwort">
+    <div class="help">
+      Beim ersten Test gerne mit dem normalen Passwort starten, später durch ein App-Passwort ersetzen
+      (in Nextcloud unter <em>Einstellungen → Sicherheit → App-Passwort erstellen</em>).
+    </div>
+
+    <label>Backup-Ordner (relativ zum Benutzerverzeichnis)</label>
+    <input type="text" id="folder" value="Faultier-Backups" autocapitalize="off" autocorrect="off" spellcheck="false">
+  </div>
+
+  <div class="card">
+    <h2>2. Tests</h2>
+    <div class="row">
+      <button id="btnAuth">① Login prüfen</button>
+      <button id="btnFolder" class="secondary">② Ordner anlegen</button>
+    </div>
+    <div class="row">
+      <button id="btnUpload">③ Test-Datei hochladen</button>
+      <button id="btnDownload" class="secondary">④ Datei laden &amp; vergleichen</button>
+    </div>
+    <div class="row">
+      <button id="btnAll">Alles am Stück durchlaufen</button>
+      <button id="btnClear" class="secondary">Log leeren</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Protokoll</h2>
+    <div class="log" id="log"></div>
+    <details>
+      <summary>Was teste ich hier eigentlich?</summary>
+      <p><strong>① Login</strong>: PROPFIND auf das Benutzerverzeichnis. Antwortet die Nextcloud mit <code>207 Multi-Status</code>, sind Server, URL und Zugangsdaten in Ordnung.</p>
+      <p><strong>② Ordner</strong>: MKCOL auf den Backup-Ordner. <code>201 Created</code> = neu angelegt, <code>405 Method Not Allowed</code> = existiert bereits (auch okay).</p>
+      <p><strong>③ Upload</strong>: PUT einer kleinen JSON-Datei mit Zeitstempel. Erwartet wird <code>201 Created</code> oder <code>204 No Content</code>.</p>
+      <p><strong>④ Download</strong>: GET derselben Datei und Byte-für-Byte-Vergleich, damit klar ist, dass nichts unterwegs verändert wurde.</p>
+    </details>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const $ = id => document.getElementById(id);
+const logEl = $('log');
+const STORAGE_KEY = 'nc-test-config';
+
+// ---------- Logging ----------
+function ts() {
+  const d = new Date();
+  return d.toTimeString().slice(0, 8);
+}
+function log(msg, cls) {
+  const span = document.createElement('span');
+  if (cls) span.className = cls;
+  span.textContent = `[${ts()}] ${msg}\n`;
+  logEl.appendChild(span);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function logStep(n, title) {
+  const span = document.createElement('span');
+  span.className = 'step';
+  span.textContent = `\n━━ Schritt ${n}: ${title} ━━\n`;
+  logEl.appendChild(span);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ---------- Persistenz (Server/User/Ordner, NICHT Passwort) ----------
+function loadConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if (c.server) $('server').value = c.server;
+    if (c.user) $('user').value = c.user;
+    if (c.folder) $('folder').value = c.folder;
+  } catch (e) {}
+}
+function saveConfig() {
+  const c = {
+    server: $('server').value.trim(),
+    user: $('user').value.trim(),
+    folder: $('folder').value.trim()
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(c));
+}
+loadConfig();
+['server', 'user', 'folder'].forEach(id => $(id).addEventListener('change', saveConfig));
+
+// ---------- Helpers ----------
+function getCreds() {
+  const server = $('server').value.trim().replace(/\/+$/, '');
+  const user = $('user').value.trim();
+  const pass = $('pass').value;
+  const folder = $('folder').value.trim().replace(/^\/+|\/+$/g, '');
+  if (!server || !user || !pass) {
+    log('Bitte Server, Benutzer und Passwort ausfüllen.', 'err');
+    return null;
+  }
+  return { server, user, pass, folder };
+}
+function davUrl(c, path = '') {
+  const base = `${c.server}/remote.php/dav/files/${encodeURIComponent(c.user)}`;
+  if (!path) return base + '/';
+  return base + '/' + path.split('/').map(encodeURIComponent).join('/');
+}
+function authHeader(c) {
+  return 'Basic ' + btoa(unescape(encodeURIComponent(`${c.user}:${c.pass}`)));
+}
+function statusInfo(s) {
+  if (s >= 200 && s < 300) return { ok: true, hint: 'Erfolg' };
+  if (s === 401) return { ok: false, hint: 'Authentifizierung fehlgeschlagen – Benutzer/Passwort prüfen' };
+  if (s === 403) return { ok: false, hint: 'Zugriff verboten – evtl. Server-seitige Restriktion' };
+  if (s === 404) return { ok: false, hint: 'Nicht gefunden – URL oder Pfad prüfen' };
+  if (s === 405) return { ok: false, hint: 'Methode nicht erlaubt (bei MKCOL: Ordner existiert evtl. schon)' };
+  if (s === 409) return { ok: false, hint: 'Konflikt – Elternordner fehlt vermutlich' };
+  if (s === 423) return { ok: false, hint: 'Datei gesperrt' };
+  if (s === 507) return { ok: false, hint: 'Speicherplatz erschöpft' };
+  if (s === 0)   return { ok: false, hint: 'Netzwerkfehler oder CORS-Block' };
+  return { ok: false, hint: `HTTP ${s}` };
+}
+async function dav(method, url, headers, body) {
+  try {
+    const res = await fetch(url, { method, headers, body });
+    const text = await res.text().catch(() => '');
+    return { status: res.status, ok: res.ok, text, headers: res.headers };
+  } catch (e) {
+    return { status: 0, ok: false, text: '', error: e.message };
+  }
+}
+
+// ---------- Tests ----------
+async function testAuth() {
+  logStep(1, 'Login prüfen (PROPFIND)');
+  const c = getCreds();
+  if (!c) return false;
+  const url = davUrl(c);
+  log(`PROPFIND ${url}`, 'info');
+  const res = await dav('PROPFIND', url, {
+    'Authorization': authHeader(c),
+    'Depth': '0',
+    'Content-Type': 'application/xml'
+  });
+  const info = statusInfo(res.status);
+  if (res.status === 207) {
+    log(`✓ Login erfolgreich (HTTP 207 Multi-Status)`, 'ok');
+    return true;
+  }
+  log(`✗ Fehlgeschlagen: HTTP ${res.status} – ${info.hint}`, 'err');
+  if (res.error) log(`  Fehler: ${res.error}`, 'err');
+  if (res.text && res.text.length < 500) log(`  Antwort: ${res.text.trim()}`, 'warn');
+  return false;
+}
+
+async function testFolder() {
+  logStep(2, 'Backup-Ordner anlegen (MKCOL)');
+  const c = getCreds();
+  if (!c) return false;
+  if (!c.folder) {
+    log('Kein Ordnername angegeben.', 'err');
+    return false;
+  }
+  const url = davUrl(c, c.folder);
+  log(`MKCOL ${url}`, 'info');
+  const res = await dav('MKCOL', url, { 'Authorization': authHeader(c) });
+  if (res.status === 201) {
+    log(`✓ Ordner neu angelegt`, 'ok');
+    return true;
+  }
+  if (res.status === 405) {
+    log(`✓ Ordner existiert bereits (HTTP 405) – auch in Ordnung`, 'ok');
+    return true;
+  }
+  const info = statusInfo(res.status);
+  log(`✗ Fehlgeschlagen: HTTP ${res.status} – ${info.hint}`, 'err');
+  return false;
+}
+
+async function testUpload() {
+  logStep(3, 'Test-Datei hochladen (PUT)');
+  const c = getCreds();
+  if (!c) return null;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `test-${stamp}.json`;
+  const path = c.folder ? `${c.folder}/${filename}` : filename;
+  const payload = {
+    type: 'nextcloud-backup-test',
+    erstellt: new Date().toISOString(),
+    nutzer: c.user,
+    zufallswert: Math.random().toString(36).slice(2),
+    nutzlast: 'Wenn du das hier liest, hat der Upload funktioniert. 🦥'
+  };
+  const body = JSON.stringify(payload, null, 2);
+  const url = davUrl(c, path);
+  log(`PUT ${url}`, 'info');
+  log(`  ${body.length} Bytes`, 'info');
+  const res = await dav('PUT', url, {
+    'Authorization': authHeader(c),
+    'Content-Type': 'application/json'
+  }, body);
+  if (res.status === 201 || res.status === 204) {
+    log(`✓ Hochgeladen (HTTP ${res.status})`, 'ok');
+    return { path, body, filename };
+  }
+  const info = statusInfo(res.status);
+  log(`✗ Fehlgeschlagen: HTTP ${res.status} – ${info.hint}`, 'err');
+  if (res.text && res.text.length < 500) log(`  Antwort: ${res.text.trim()}`, 'warn');
+  return null;
+}
+
+async function testDownload(uploaded) {
+  logStep(4, 'Datei wieder laden und vergleichen (GET)');
+  const c = getCreds();
+  if (!c) return false;
+  if (!uploaded) {
+    log('Keine hochgeladene Datei zum Vergleich vorhanden – erst Upload ausführen.', 'warn');
+    return false;
+  }
+  const url = davUrl(c, uploaded.path);
+  log(`GET ${url}`, 'info');
+  try {
+    const res = await fetch(url, { headers: { 'Authorization': authHeader(c) } });
+    if (!res.ok) {
+      const info = statusInfo(res.status);
+      log(`✗ Fehlgeschlagen: HTTP ${res.status} – ${info.hint}`, 'err');
+      return false;
+    }
+    const text = await res.text();
+    log(`  ${text.length} Bytes empfangen`, 'info');
+    if (text === uploaded.body) {
+      log(`✓ Inhalt identisch – Round-Trip funktioniert`, 'ok');
+      return true;
+    } else {
+      log(`✗ Inhalt weicht ab`, 'err');
+      log(`  Hochgeladen: ${uploaded.body.slice(0, 80)}…`, 'warn');
+      log(`  Empfangen:   ${text.slice(0, 80)}…`, 'warn');
+      return false;
+    }
+  } catch (e) {
+    log(`✗ Netzwerkfehler: ${e.message}`, 'err');
+    return false;
+  }
+}
+
+// ---------- UI-Bindings ----------
+let lastUpload = null;
+
+function setBusy(busy) {
+  document.querySelectorAll('button').forEach(b => b.disabled = busy);
+}
+
+$('btnAuth').addEventListener('click', async () => {
+  setBusy(true);
+  await testAuth();
+  setBusy(false);
+});
+$('btnFolder').addEventListener('click', async () => {
+  setBusy(true);
+  await testFolder();
+  setBusy(false);
+});
+$('btnUpload').addEventListener('click', async () => {
+  setBusy(true);
+  const result = await testUpload();
+  if (result) lastUpload = result;
+  setBusy(false);
+});
+$('btnDownload').addEventListener('click', async () => {
+  setBusy(true);
+  await testDownload(lastUpload);
+  setBusy(false);
+});
+$('btnAll').addEventListener('click', async () => {
+  setBusy(true);
+  log('▶ Vollständiger Durchlauf gestartet', 'info');
+  const a = await testAuth();
+  if (a) {
+    const f = await testFolder();
+    if (f) {
+      const u = await testUpload();
+      if (u) {
+        lastUpload = u;
+        await testDownload(u);
+      }
+    }
+  }
+  log('\n▶ Durchlauf beendet', 'info');
+  setBusy(false);
+});
+$('btnClear').addEventListener('click', () => {
+  logEl.innerHTML = '';
+  lastUpload = null;
+});
+
+// Pill-Update je nach Passwortlänge (App-PWs sind typisch 30-40 Zeichen mit Leerstellen-Gruppen)
+$('pass').addEventListener('input', e => {
+  const v = e.target.value;
+  const looksLikeAppPw = v.length >= 25 && /[a-zA-Z]/.test(v);
+  const badge = $('pwTypeBadge');
+  if (!v) {
+    badge.textContent = 'App-Passwort empfohlen';
+    badge.className = 'pill';
+  } else if (looksLikeAppPw) {
+    badge.textContent = 'sieht nach App-Passwort aus';
+    badge.className = 'pill';
+  } else {
+    badge.textContent = 'normales Passwort?';
+    badge.className = 'pill warn';
+  }
+});
+
+log('Bereit. Trag deine Zugangsdaten ein und starte mit „① Login prüfen".', 'info');
+</script>
+</body>
+</html>
